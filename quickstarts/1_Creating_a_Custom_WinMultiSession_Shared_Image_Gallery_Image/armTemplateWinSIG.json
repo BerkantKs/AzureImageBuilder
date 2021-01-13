@@ -47,7 +47,7 @@
         
             "source": {
                 "type": "PlatformImage",
-                    "publisher": "MicrosoftWindowsServer",
+                    "publisher": "microsoftwindowsdesktop",
                     "offer": "office-365",
                     "sku": "20h1-evd-o365pp",
                     "version": "latest"
