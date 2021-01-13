@@ -53,12 +53,6 @@
                     "version": "latest"
             },
             "customize": [
-
-                    {
-                        "type": "PowerShell",
-                        "name": "CreateBuildPath",
-                        "scriptUri": "https://raw.githubusercontent.com/danielsollondon/azvmimagebuilder/master/testPsScript.ps1"
-                    },
                     {
                         "type": "WindowsRestart",
                         "restartCheckCommand": "echo Azure-Image-Builder-Restarted-the-VM  > c:\\buildArtifacts\\azureImageBuilderRestart.txt",
@@ -71,14 +65,7 @@
                             "mkdir c:\\buildActions",
                             "echo Azure-Image-Builder-Was-Here  > c:\\buildActions\\buildActionsOutput.txt"
                         ]
-                    },
-                    {
-                        "type": "PowerShell",
-                        "name": "Install_FSLogix",
-                        "scriptUri": "https://raw.githubusercontent.com/michawets/AzureImageBuilderPOC/master/scripts/install_FSLogix.ps1",
-                        "runElevated": true
-                    },
-                        
+                    },                      
                     {
                         "type": "WindowsUpdate",
                         "searchCriteria": "IsInstalled=0",
