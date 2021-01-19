@@ -1,0 +1,70 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "galleryName": {
+        "type": "string",
+        "metadata": {
+            "description": "Name of the Shared Image Gallery."
+        }
+      },
+      "galleryImageDefinitionName": {
+        "type": "string",
+        "metadata": {
+            "description": "Name of the Image Definition."
+        }
+      },
+      "description": {
+      "type": "string",
+      "defaultValue": "Shared Gallery Description"
+        }
+    },
+      
+    "resources": [
+      {
+        "apiVersion": "2019-12-01",
+        "type": "Microsoft.Compute/galleries",
+        "name": "[parameters('galleryName')]",
+        "location": "westeurope",
+        "properties": {
+          "description": "[parameters('description')]"
+        }
+      },
+      {
+        "apiVersion": "2019-12-01",
+        "type": "Microsoft.Compute/galleries/images",
+        "name": "[concat(parameters('galleryName'),'/', parameters('galleryImageDefinitionName'))]",
+        "location": "westeurope",
+        "dependsOn":[
+            "[resourceId('Microsoft.Compute/galleries/', parameters('galleryName'))]"
+        ],
+        "properties": {
+            "description": "[parameters('description')]",
+            "osType": "Windows",
+            "osState": "Generalized",
+            "endOfLifeDate": "2013-01-01",
+            "identifier":{
+                "publisher": "Berkant",
+                "offer": "WVD",
+                "sku": "20h2-evd-o365pp"
+            },
+            "recommended": {
+                "VCPUs": {
+                    "min": "1",
+                    "max": "64"
+                },
+                "memory": {
+                    "min": "2048",
+                    "max": "307720"
+                }
+            }
+        }
+    } 
+    ],
+    "outputs": {
+        "sigdefitionid": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.Compute/galleries/images', parameters('galleryName'),parameters('galleryImageDefinitionName'))]"
+        }
+    }
+}

@@ -1,0 +1,120 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+    "sourceImagePublisher": {
+        "type": "string"
+      },
+    "sourceImageOffer": {
+        "type": "string"
+      },
+    "sourceImagesku": {
+        "type": "string"
+      },
+    "sourceImageVersion": {
+        "type": "string",
+        "metadata": {
+            "description": "Version of the image, can be found with powershell: Get-AzVMImage -Location westeurope -PublisherName MicrosoftWindowsDesktop -Offer windows-10"
+        }
+      },
+    "ScriptUri": {
+        "type": "string",
+        "metadata": {
+            "description": "Location of basic powershell scripts to customize your image"
+        }
+      },
+    "ManagedImageName": {
+        "type": "string",
+        "metadata": {
+            "description": "Name of the managed image, it will be created in the AIB resourcegroup"
+        }
+      },
+    "UserAssignedId": {
+        "type": "string"
+      },
+    "SigResourceName": {
+        "type": "string"
+      },
+    "SigImageDefinition": {
+        "type": "string",
+        "metadata": {
+            "description": "Name of the SIG Image"
+        }
+      },
+    "SigImageVersion": {
+        "type": "string",
+        "metadata": {
+            "description": "Version of the SIG Image"
+        }
+      }
+    },
+    "variables": {
+        "imageTemplateName": "[parameters('ManagedImageName')]",
+        "SigResourceId": "[concat('/subscription/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.Compute/galleries/', parameters('SigResourceName'))]",
+        "SIGId": "[concat(variables('SigResourceId'),'/images', parameters('SigImageDefinition'),'/versions/', parameters('SigImageVersion'))]"
+    },
+    "resources": [
+      {
+        "apiVersion": "2020-02-14",
+        "type": "Microsoft.VirtualMachineImages/imageTemplates",
+        "name": "[variables('imageTemplateName')]",
+        "location": "westeurope",
+        "dependsOn":[],
+        "properties": {
+            "source":{
+                "type:": "PlatformImage",
+                "publisher": "[parameters('sourceImagePublisher')]",
+                "offer": "[parameters('sourceImageOffer')]",
+                "sku": "[parameters('sourceImagesku')]",
+                "version": "[parameters('sourceImageVersion')]"
+            },
+            "customize": [
+                {
+                    "type": "PowerShell",
+                    "name": "InstallApps",
+                    "scriptUri": "[parameters('ScriptUri')]",
+                    "runElevated": true
+                },
+                  {
+                    "type": "PowerShell",
+                    "inline": [
+                        "New-Item -Path HKLM:\\Software\\Microsoft\\DesiredStateConfiguration",
+                        "New-ItemProperty -Path HKLM:\\Software\\Microsoft\\DesiredStateConfiguration -Name 'AgentId' -PropertyType STRING -Force"
+                    ]
+                },
+                {
+                    "type": "WindowsRestart",
+                    "restartTimeout": "30m"
+                }
+            ],
+            "distribute": [
+                {
+                    "type": "SharedImage",
+                    "galleryImageId:": "[variables('SIGId')]",
+                    "runOutpurName": "AIBSIG",
+                    "artifactTags": {},
+                    "replicationRegions": [
+                        "westeurope"
+                    ]
+                }
+            ]
+        },
+        "identity": {
+                "type": "UserAssigned",
+                "UserAssignedIdentities":{
+                    "[parameters('UserAssignedId')]": {}
+                }
+            }
+        }
+
+    ],
+    "outputs": {
+        "ImageTemplateName": {
+            "type": "string",
+            "value": "[variables('ImageTemplateName')]"
+        }
+    }
+}
+
+
+

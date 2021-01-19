@@ -1,0 +1,36 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "sourceImagePublisher": {
+            "value": "microsoftwindowsdesktop" 
+        },
+        "sourceImageOffer": {
+            "value": "office-365" 
+        },
+        "sourceImagesku": {
+            "value": "20h2-evd-o365pp" 
+        },
+        "sourceImageVersion": {
+            "value": "latest" 
+        },
+        "ScriptUri": {
+            "value": "" 
+        },
+        "ManagedImageName": {
+            "value": "Win1020H2image" 
+        },
+        "UserAssignedId": {
+            "value": "" 
+        },
+        "SigResourceName": {
+            "value": "tctestaibsig" 
+        },
+        "SigImageDefinition": {
+            "value": "Win10-20H2" 
+        },
+        "SigImageVersion": {
+            "value": "1.0.1" 
+        }
+    }
+}
