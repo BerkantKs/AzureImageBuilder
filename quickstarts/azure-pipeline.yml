@@ -1,0 +1,120 @@
+trigger:
+  - main
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+- group: WVD-PROD-AIB-vg
+
+steps:
+- task: AzureResourceGroupDeployment@2
+  displayName: '[Validation] - Deploy WVD Optimizer storage account'
+  inputs:
+    azureSubscription: $(AzureSubscription_PROD)
+    resourceGroupName: $(AzureResourceGroup_PROD)
+    location: 'West Europe'
+    csmFile: ARM/StorageAccount/sa.deploy.json
+    csmParametersFile: ARM/StorageAccount/sa.deploy.parameters.json
+    deploymentMode: Validation
+
+- task: AzureResourceGroupDeployment@2
+  displayName: '[Deploy] - Deploy WVD Optimizer storage account'
+  inputs:
+    azureSubscription: $(AzureSubscription_PROD)
+    resourceGroupName: $(AzureResourceGroup_PROD)
+    location: 'West Europe'
+    csmFile: ARM/StorageAccount/sa.deploy.json
+    csmParametersFile: ARM/StorageAccount/sa.deploy.parameters.json
+    deploymentMode: Incremental
+    deploymentOutputs: WvdOptStorageAccountName
+
+- task: PowerShell@2
+  displayName: 'Get WvdOptimizer StorageAccountName for deployment'
+  inputs: 
+    targetType: 'inline'
+    script: |
+      Write-Host: '$(WvdOptStorageAccountName)'
+      $result = '$(WvdOptStorageAccountName)' | ConvertFrom-Json
+      $saName = $result.StorageAccountName.value
+      Write-Host "##vso[task.setvariable variable=wvdOptSaName]$saName"
+
+- task: AzurePowerShell@5
+  displayName: 'Create & Copy WVD Optimizer zip to the Storage Account'
+  inputs:
+    azureSubscription: $(AzureSubscription_PROD)
+    ScriptType: 'inline'
+    script: |
+     Write-Host "Retrieving Storage Account Key1..."
+     $key = (Get-AzureStorageAccountKey -ResourceGroupName $(AzureResourceGroup_PROD) -AccountName $(wvdOptSaName))[0].value
+     #Write-Host ("key = '{0}'" -f $key)
+     Write-Host "Connecting to Storage Account ..."
+     $ctx = New-AzStorageContext -StorageAccountName $(wvdOptSaName) -StorageAccountKey $key
+     Write-Host "Get current folder name ..."
+     $CurrentFolder = (Get-Item .).FullName
+     Write-Host $CurrentFolder
+     $CurrentFolder | Compress-Archive -DestinationPath WVDOptimizer.zip -Force
+     Get-ChildItem -File "WVDOptimizer.zip" | Set-AzStorageBlobContent - Container "wyd-opts-scripts" -Context $ctx -Force
+     $blob = Get-AzStorageBlob -Container "wvd-opts-scripts" -Blob "WVDOptimizer.zip". -Context $ctx
+     $bloburi = $blob.BlobBaseClient.Uri.AbsoluteUri
+     Write-Host ("bloburi = '{0}'" -f $bloburi)
+     Write-Host "##vso[task.setvariable variable=bloburi]$bloburi"
+     $StartTime = Get-Date
+     $EndTime = $startTime.AddHours(24)
+     $sasToken = New-AzStorageBlobSASToken -Container "wvd-opts-scripts" -Blob "WVDOptimizer.zip" -Permission r -Context $ctx -StartTime $StartTime -ExpiryTime $EndTime
+     Write-Host ("sas = '{0}'" -f $sasToken)
+     Write-Host "##vso[task.setvariable variable=sasToken]$sasToken"
+     $fullblobPath = ("{0}{1}" -f $bloburi, $sasToken)
+     Write-Host ("fullBlobPath = '{0}'" -f $fullblobPath)
+     Write-Host "##vso[task.setvariable variable=fullBlobPath]$fullBlobPath"
+    azurePowerShellVersion: LatestVersion
+    workingDirectory: 'scripts/WVDOptimizer'
+
+- task: PowerShell@2
+  displayName: 'Update InstallApplications.ps1 with SAS token url from WVDOptimizer.zip'
+  inputs:
+    targetType: 'inline'
+    workingDirectory: 'scripts/InstallApplications'
+    script: |
+      $script = Get-Content "InstallApplications.ps1" -Raw
+      $wvdoptimizeurl = "$(fullBlobPath)"
+      $script = $script.Replace("<<WvdOptimizerUrlFromBuild>>", $wvdoptimizeurl)
+      $script | Out-File "InstallApplications.ps1" -Force
+
+- task: AzureResourceGroupDeployment@2
+  displayName: '[Validation] -Deploy Azure Image Gallery'
+  inputs:
+    azureSubscription: $(AzureSubscription_PROD)
+    resourceGroupName: $(AzureResourceGroup_PROD)
+    location: 'West Europe'
+    csmFile: ARM/AzureImageGallery/aig.deploy.json
+    csmParametersFile: ARM/AzureImageGallery/aig.deploy.parameters.json
+    deploymentMode: Validation
+
+- task: AzureResourceGroupDeployment@2
+  displayName: '[Validation] - Deploy AIB storage account'
+  inputs:
+    azureSubscription: $(AzureSubscription_PROD)
+    resourceGroupName: $(AzureResourceGroup_PROD)
+    location: 'West Europe'
+    csmFile: ARM/StorageAccount/sa.deploy.json
+    csmParametersFile: ARM/StorageAccount/sa.deploy.parameters.json
+    deploymentMode: Validation
+
+- task: CopyFiles@2
+  displayName: 'Copy Files to: ArmTemplates'
+  inputs:
+    SourceFolder: ARM
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/ARMTemplates'
+    CleanTargetFolder: true
+
+- task: CopyFiles@2
+  displayName: 'Copy Files to: Scripts'
+  inputs:
+    SourceFolder: scripts
+    TargetFolder: '$(Build.artifactStaginDirectory)/Scripts'
+    CleanTargetFolder: true
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact: drop'
+

@@ -1,12 +1,16 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-Write-Host "Installing FSLogix"
-
-if ($null -eq (Get-Item -Path "c:\buildArtifacts" -ErrorAction SilentlyContinue)) {
+if($null -eq (Get-Item -Path "c:\buildArtifacts" -ErrorAction SilentlyContinue)){
     New-Item -Path "c:\buildArtifacts" -ItemType Directory -Force
 }
 
+Set-Location "c:\buildArtifacts"
+
+
+#region FSLogix
+
+Write-Host "Installing FSLogix"
 $WVDFSLogixUrl = "https://aka.ms/fslogix_download"
 $logFileLocation = "c:\buildArtifacts\FSLogixInstallation.log"
 $FSLogixInstallerZip = "c:\buildArtifacts\FSLogix_Apps.zip"
@@ -35,3 +39,31 @@ $fsLogix_install_status = Start-Process -FilePath $FSLogixInstaller -ArgumentLis
 ("Installer finished with returncode '{0}'" -f $fsLogix_install_status.ExitCode) | Out-File $logFileLocation -Append
 
 Write-Host "FSLogix done!"
+#endregion
+
+#region WVD Optimizer
+Write-Host "Running Optimizer"
+$WVDOptimizerURL = "<<WvdOptimizerUrlFromBuild>>"
+$logFileLocation = "c:\buildArtifacts\WVDOptimizer.log"
+$WvdOptimizerZip = "c:\buildArtifacts\WVDOptimizer.zip"
+
+("Starting download...") | Out-File $logFileLocation -Append
+Invoke-WebRequest -Uri $WVDOptimizerURL -OutFile $WvdOptimizerZip -UseBasicParsing
+("Download finished.") | Out-File $logFileLocation -Append
+
+("Starting extraction...") | Out-File $logFileLocation -Append
+Expand-Archive -Path $WvdOptimizerZip -DestinationPath "c:\buildArtifacts\"
+("Extraction finished.") | Out-File $logFileLocation -Append
+
+Set-Location "c:\buildArtifacts\WVDOptimizer"
+("Starting WVDOptimizer...") | Out-File $logFileLocation -Append
+.\OptimizeMe.ps1
+("WVDOptimizer finished.") | Out-File $logFileLocation -Append
+#endregion
+
+Set-Location "c:\buildArtifacts"
+
+Write-Host "All done!"
+
+#Write-Host "Rebooting..."
+#Restart-Computer -Force

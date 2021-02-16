@@ -1,0 +1,23 @@
+     Write-Host "Retrieving Storage Account Key1..."
+     $key = (Get-AzureStorageAccountKey -ResourceGroupName $(AzureResourceGroup_PROD) -AccountName $(wvdOptSaName))[0].value
+     #Write-Host ("key = '{0}'" -f $key)
+     Write-Host "Connecting to Storage Account ..."
+     $ctx = New-AzStorageContext -StorageAccountName $(wvdOptSaName) -StorageAccountKey $key
+
+     Write-Host "Get current folder name ..."
+     $CurrentFolder = (Get-Item .).FullName
+     Write-Host $CurrentFolder
+     
+     Get-ChildItem -File -Recurse | Set-AzStorageBlobContent -Container "aib-scripts" -Context $ctx -Force
+     $blob = Get-AzStorageBlob -Container "aib-scripts" -Blob "InstallApplications.ps1"-Context $ctx
+     $bloburi = $blob.BlobBaseClient.Uri.AbsoluteUri
+     Write-Host ("bloburi = '{0}'" -f $bloburi)
+     Write-Host "##vso[task.setvariable variable=bloburi]$bloburi"
+     $StartTime = Get-Date
+     $EndTime = $startTime.AddHours(24)
+     $sasToken = New-AzStorageBlobSASToken -Container "aib-scripts" -Blob "WVDOptimizer.zip" -Permission r -Context $ctx -StartTime $StartTime -ExpiryTime $EndTime
+     Write-Host ("sas = '{0}'" -f $sasToken)
+     Write-Host "##vso[task.setvariable variable=sasToken]$sasToken"
+     $fullblobPath = ("{0}{1}" -f $bloburi, $sasToken)
+     Write-Host ("fullBlobPath = '{0}'" -f $fullblobPath)
+     Write-Host "##vso[task.setvariable variable=fullBlobPath]$fullBlobPath"
